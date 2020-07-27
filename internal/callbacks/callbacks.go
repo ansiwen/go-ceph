@@ -19,11 +19,11 @@ import (
 // to control and validate what "callbacks" get used.
 type Callbacks struct {
 	mutex sync.RWMutex
-	cmap  map[int]interface{}
-	index int
+	cmap  map[uintptr]interface{}
+	index uintptr
 }
 
-func (cb *Callbacks) nextIndex() int {
+func (cb *Callbacks) nextIndex() uintptr {
 	index := cb.index
 	for {
 		cb.index++
@@ -36,12 +36,12 @@ func (cb *Callbacks) nextIndex() int {
 
 // New returns a new callbacks tracker.
 func New() *Callbacks {
-	return &Callbacks{cmap: make(map[int]interface{})}
+	return &Callbacks{cmap: make(map[uintptr]interface{})}
 }
 
 // Add a callback/object to the tracker and return a new index
 // for the object.
-func (cb *Callbacks) Add(v interface{}) int {
+func (cb *Callbacks) Add(v interface{}) uintptr {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 	index := cb.nextIndex()
@@ -50,14 +50,14 @@ func (cb *Callbacks) Add(v interface{}) int {
 }
 
 // Remove a callback/object given it's index.
-func (cb *Callbacks) Remove(index int) {
+func (cb *Callbacks) Remove(index uintptr) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 	delete(cb.cmap, index)
 }
 
 // Lookup returns a mapped callback/object given an index.
-func (cb *Callbacks) Lookup(index int) interface{} {
+func (cb *Callbacks) Lookup(index uintptr) interface{} {
 	cb.mutex.RLock()
 	defer cb.mutex.RUnlock()
 	return cb.cmap[index]
