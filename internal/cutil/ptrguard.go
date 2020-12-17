@@ -1,6 +1,8 @@
 package cutil
 
 /*
+#include <stdlib.h>
+
 extern void lock(void*);
 extern void unlock(void*);
 
@@ -64,4 +66,13 @@ func lock(p unsafe.Pointer) {
 func unlock(p unsafe.Pointer) {
 	m := (*sync.Mutex)(p)
 	m.Unlock()
+}
+
+// for tests
+func cMalloc(n uintptr) unsafe.Pointer {
+	return C.malloc(C.size_t(n))
+}
+
+func cFree(p unsafe.Pointer) {
+	C.free(p)
 }
