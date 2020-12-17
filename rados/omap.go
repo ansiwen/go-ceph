@@ -8,6 +8,8 @@ import "C"
 
 import (
 	"unsafe"
+
+	"github.com/ceph/go-ceph/internal/cutil"
 )
 
 // SetOmap appends the map `pairs` to the omap `oid`
@@ -35,11 +37,12 @@ func (ioctx *IOContext) SetOmap(oid string, pairs map[string][]byte) error {
 		defer C.free(unsafe.Pointer(*c_key_ptr))
 
 		// value and its length
-		c_value_ptr := (**C.char)(unsafe.Pointer(uintptr(c_values) + uintptr(i)*ptrSize))
+		c_value_ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(c_values) + uintptr(i)*ptrSize))
 
 		var c_length C.size_t
 		if len(value) > 0 {
-			*c_value_ptr = (*C.char)(unsafe.Pointer(&value[0]))
+			pg := cutil.NewPtrGuard(c_value_ptr, unsafe.Pointer(&value[0]))
+			defer pg.Release()
 			c_length = C.size_t(len(value))
 		} else {
 			*c_value_ptr = nil
