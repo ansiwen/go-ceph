@@ -10,7 +10,7 @@ import (
 	"unsafe"
 )
 
-var iovecSize uintptr
+const iovecSize = C.sizeof_struct_iovec
 
 // StructIovecPtr is an unsafe pointer wrapping C's `*struct iovec`.
 type StructIovecPtr unsafe.Pointer
@@ -20,7 +20,8 @@ type Iovec struct {
 	// cvec represents an array of struct iovec C memory
 	cvec unsafe.Pointer
 	// length of the array (in elements)
-	length int
+	length    int
+	ptrGuards []*PtrGuard
 }
 
 // NewIovec creates an Iovec, and underlying C memory, of the specified size.
@@ -56,6 +57,9 @@ func (v *Iovec) Len() int {
 // Free the C memory in the Iovec.
 func (v *Iovec) Free() {
 	if v.cvec != nil {
+		for _, pg := range v.ptrGuards {
+			pg.Release()
+		}
 		C.free(v.cvec)
 		v.cvec = nil
 		v.length = 0
@@ -68,11 +72,7 @@ func (v *Iovec) Set(i int, buf []byte) {
 	offset := uintptr(i) * iovecSize
 	iov := (*C.struct_iovec)(unsafe.Pointer(
 		uintptr(unsafe.Pointer(v.cvec)) + offset))
-	iov.iov_base = unsafe.Pointer(&buf[0])
+	pg := NewPtrGuard(&iov.iov_base, unsafe.Pointer(&buf[0]))
+	v.ptrGuards = append(v.ptrGuards, pg)
 	iov.iov_len = C.size_t(len(buf))
-}
-
-func init() {
-	var iovec C.struct_iovec
-	iovecSize = unsafe.Sizeof(iovec)
 }
