@@ -1,6 +1,8 @@
 package cutil
 
 /*
+#include <stdlib.h>
+
 extern void pong(void*);
 
 static inline void storeAndWait(void** c_ptr, void* go_ptr, void* rendezvouz) {
@@ -73,4 +75,13 @@ func (v *PtrGuard) Release() {
 func pong(p unsafe.Pointer) {
 	m := (*rendezvouz)(p)
 	m.pong()
+}
+
+// for tests
+func cMalloc(n uintptr) unsafe.Pointer {
+	return C.malloc(C.size_t(n))
+}
+
+func cFree(p unsafe.Pointer) {
+	C.free(p)
 }
