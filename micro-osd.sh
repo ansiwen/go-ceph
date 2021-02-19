@@ -32,6 +32,7 @@ mkdir ${LOG_DIR} ${MON_DATA} ${OSD_DATA} ${MDS_DATA} ${MOUNTPT}
 MDS_NAME="Z"
 MON_NAME="a"
 MGR_NAME="x"
+MIRROR_ID="m"
 
 # cluster wide parameters
 cat >> ${DIR}/ceph.conf <<EOF
@@ -43,9 +44,10 @@ auth cluster required = none
 auth service required = none
 auth client required = none
 osd pool default size = 1
+mon host = ${HOSTNAME}
 
 [mds.${MDS_NAME}]
-host = localhost
+host = ${HOSTNAME}
 
 [mon.${MON_NAME}]
 log file = ${LOG_DIR}/mon.log
@@ -53,7 +55,7 @@ chdir = ""
 mon cluster log file = ${LOG_DIR}/mon-cluster.log
 mon data = ${MON_DATA}
 mon data avail crit = 0
-mon addr = 127.0.0.1
+mon addr = ${HOSTNAME}
 mon allow pool delete = true
 
 [osd.0]
@@ -72,14 +74,14 @@ export CEPH_CONF=${DIR}/ceph.conf
 # start an osd
 ceph-mon --id ${MON_NAME} --mkfs --keyring /dev/null
 touch ${MON_DATA}/keyring
-ceph-mon --id ${MON_NAME}
+ceph-run ceph-mon -f --id ${MON_NAME} &
 
 # start an osd
 OSD_ID=$(ceph osd create)
-ceph osd crush add osd.${OSD_ID} 1 root=default host=localhost
+ceph osd crush add osd.${OSD_ID} 1 root=default
 ceph-osd --id ${OSD_ID} --mkjournal --mkfs
 sleep 5 # this is an attempt to fix CI issue #423, remove if it has no effect
-ceph-osd --id ${OSD_ID}
+ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID}
 
 # start an mds for cephfs
 ceph auth get-or-create mds.${MDS_NAME} mon 'profile mds' mgr 'profile mds' mds 'allow *' osd 'allow *' > ${MDS_DATA}/keyring
@@ -98,14 +100,20 @@ ceph-fuse ${MOUNTPT}
 # start a manager
 ceph-mgr --id ${MGR_NAME}
 
+# start rbd-mirror
+ceph auth get-or-create client.rbd-mirror.${MIRROR_ID} mon 'profile rbd-mirror' osd 'profile rbd'
+rbd-mirror --id ${MIRROR_ID} --log-file ${LOG_DIR}/rbd-mirror.log
+
 # test the setup
-ceph --version
-ceph status
-test_pool=$(uuidgen)
-temp_file=$(mktemp)
-ceph osd pool create ${test_pool} 0
-rados --pool ${test_pool} put group /etc/group
-rados --pool ${test_pool} get group ${temp_file}
-diff /etc/group ${temp_file}
-ceph osd pool delete ${test_pool} ${test_pool} --yes-i-really-really-mean-it
-rm ${temp_file}
+#ceph --version
+#ceph status
+#test_pool=$(uuidgen)
+#temp_file=$(mktemp)
+#ceph osd pool create ${test_pool} 0
+#rados --pool ${test_pool} put group /etc/group
+#rados --pool ${test_pool} get group ${temp_file}
+#diff /etc/group ${temp_file}
+#ceph osd pool delete ${test_pool} ${test_pool} --yes-i-really-really-mean-it
+#rm ${temp_file}
+
+touch ${DIR}/.ready
